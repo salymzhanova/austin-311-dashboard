@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Secrets and local config
+.streamlit/secrets.toml
+.env
+
+# macOS
+.DS_Store
+
+# Personal files
+IMG_9160.HEIC
+
+# Kiro IDE settings and steering files
+.kiro/
