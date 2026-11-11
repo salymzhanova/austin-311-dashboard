@@ -58,8 +58,8 @@ def persona_banner() -> None:
 # Every query below is cached for CACHE_TTL seconds. Once an entry expires, the next time someone
 # opens that view the app quietly fetches fresh data, so the dashboard stays current with no manual
 # step. Repeat visits inside the window never touch the Austin servers, which keeps request volume low.
-# Override with the DASHBOARD_CACHE_TTL environment variable (seconds). The Austin 311 dataset itself
-# is updated through the day, so an hour is a sensible default.
+# Override with the DASHBOARD_CACHE_TTL environment variable (seconds; a setting, not a secret). The
+# Austin 311 dataset itself is updated through the day, so an hour is a sensible default.
 CACHE_TTL = int(os.environ.get("DASHBOARD_CACHE_TTL", 3600))
 REFRESH_COOLDOWN = 60  # seconds between manual refreshes, to protect the Austin servers
 
@@ -120,6 +120,26 @@ def get_city_times(n: int) -> dict:
 def get_type(t: str, n: int) -> pd.DataFrame:
     return use(_type(t, n, snapshot.SCHEMA_VERSION))
 
+
+
+
+def load_app_token() -> str | None:
+    """Optional Socrata app token from Streamlit secrets. Never hardcode it in the code.
+
+    Locally it comes from .streamlit/secrets.toml (git-ignored); on Streamlit Community Cloud from the
+    app's Secrets settings. Without one the app still works, just under Austin's lower anonymous rate limit.
+    """
+    # Reading st.secrets with no secrets file makes Streamlit print a "No secrets found" message on the
+    # page, so check quietly first. load_if_toml_exists() returns False instead of printing.
+    try:
+        if not st.secrets.load_if_toml_exists():
+            return None
+        return st.secrets.get("SOCRATA_APP_TOKEN") or None
+    except Exception:  # malformed secrets.toml: run without a token rather than break the page
+        return None
+
+
+snapshot.set_app_token(load_app_token())
 
 ss = st.session_state
 ss.setdefault("detail_type", None)

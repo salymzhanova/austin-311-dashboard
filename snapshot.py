@@ -1,5 +1,4 @@
 """Live Austin 311 queries and helpers for the district snapshot and request-type detail pages."""
-import os
 import re
 import threading
 from zoneinfo import ZoneInfo
@@ -41,8 +40,8 @@ class DataUnavailable(RuntimeError):
 def make_session(backoff: float = 1.5) -> requests.Session:
     """HTTP session that retries rate limits (429) and server errors with growing waits.
 
-    Honors the server's Retry-After header. Set SOCRATA_APP_TOKEN in the environment to use a
-    free Socrata app token, which gives a much higher rate limit than anonymous requests.
+    Honors the server's Retry-After header. No credentials live in this module: the optional Socrata
+    app token is supplied by the app from st.secrets through set_app_token() below.
     """
     retry = Retry(total=4, connect=3, read=3, backoff_factor=backoff,
                   status_forcelist=(429, 500, 502, 503, 504), allowed_methods=("GET",),
@@ -51,12 +50,18 @@ def make_session(backoff: float = 1.5) -> requests.Session:
     s.mount("https://", HTTPAdapter(max_retries=retry))
     s.mount("http://", HTTPAdapter(max_retries=retry))
     s.headers["User-Agent"] = "austin-311-district-dashboard/1.0"
-    if os.environ.get("SOCRATA_APP_TOKEN"):
-        s.headers["X-App-Token"] = os.environ["SOCRATA_APP_TOKEN"]
     return s
 
 
 SESSION = make_session()
+
+
+def set_app_token(token: str | None) -> None:
+    """Send (or stop sending) a Socrata app token with every request. A free token raises the rate limit."""
+    if token:
+        SESSION.headers["X-App-Token"] = token
+    else:
+        SESSION.headers.pop("X-App-Token", None)
 
 
 def fetch_rows(select: str, where: str) -> list[dict]:
